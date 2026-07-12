@@ -2,6 +2,7 @@
   <div class="page">
     <text class="title">GB Relay</text>
     <text class="status">{{ status }}</text>
+    <image class="tile" if="{{imageSrc}}" src="{{imageSrc}}"></image>
     <text class="message">{{ lastMessage }}</text>
     <text class="button" onclick="sendPing">SEND PING</text>
   </div>
@@ -32,6 +33,11 @@
     text-align: center;
     lines: 6;
   }
+  .tile {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+  }
   .button {
     color: #1e90ff;
     font-size: 26px;
@@ -43,21 +49,64 @@
 
 <script>
   import interconnect from '@system.interconnect'
+  import file from '@system.file'
+
+  const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+  function base64ToArrayBuffer(base64) {
+    const clean = base64.replace(/[^A-Za-z0-9+/]/g, '')
+    const bytes = []
+    let buffer = 0
+    let bits = 0
+    for (let i = 0; i < clean.length; i++) {
+      buffer = (buffer << 6) | BASE64_CHARS.indexOf(clean[i])
+      bits += 6
+      if (bits >= 8) {
+        bits -= 8
+        bytes.push((buffer >> bits) & 0xff)
+      }
+    }
+    return new Uint8Array(bytes)
+  }
 
   export default {
     private: {
       status: 'starting...',
       lastMessage: '(no message yet)',
+      imageSrc: '',
       connect: interconnect.instance()
     },
     onShow() {
       this.refreshStatus()
       this.connect.onmessage = (data) => {
         this.refreshStatus()
-        this.lastMessage = data.data
+        if (typeof data.data === 'string' && data.data.indexOf('IMG:') === 0) {
+          this.handleImageMessage(data.data.substring(4))
+        } else {
+          this.lastMessage = data.data
+        }
       }
       this.connect.onclose = () => {
         this.status = 'closed'
+      }
+    },
+    handleImageMessage(base64) {
+      this.lastMessage = 'decoding image, ' + base64.length + ' b64 chars'
+      try {
+        const buffer = base64ToArrayBuffer(base64)
+        file.writeArrayBuffer({
+          uri: 'internal://files/tile.png',
+          buffer: buffer,
+          success: () => {
+            this.lastMessage = 'image written, ' + buffer.byteLength + ' bytes'
+            this.imageSrc = 'internal://files/tile.png'
+          },
+          fail: (data, code) => {
+            this.lastMessage = 'file write failed ' + code + ': ' + JSON.stringify(data)
+          }
+        })
+      } catch (e) {
+        this.lastMessage = 'exception: ' + e.message
       }
     },
     refreshStatus() {

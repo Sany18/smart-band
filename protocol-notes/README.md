@@ -142,3 +142,67 @@ something in Gadgetbridge needs to call
 `XiaomiRpkService.sendMessageToApp()` from actual app logic instead of
 the debug receiver — e.g. a settings screen, a scheduled job, or a
 response to a `conn.send()` request coming from the watch itself.
+
+### Relaying an actual image, not just text
+
+The same channel can carry binary data — messages are just byte arrays —
+which means a phone-relayed image (fetched from the real internet via
+Internethelper, something the band can never do on its own) can be
+rendered on the watch. Confirmed working end-to-end; see
+[`../custom-apps/gb-relay/`](../custom-apps/gb-relay/).
+
+The approach: base64-encode the image on the phone side, prefix it `IMG:`
+so the watch can distinguish it from a plain text message, decode it back
+to bytes on the watch, write it to local storage via `@system.file`, then
+point an `<image>` tag at that local file:
+
+```js
+import file from '@system.file'
+// ... base64 decode to a Uint8Array `buffer` ...
+file.writeArrayBuffer({
+  uri: 'internal://files/tile.png',
+  buffer: buffer,
+  success: () => { /* now safe to set <image src="internal://files/tile.png"> */ },
+  fail: (data, code) => {}
+})
+```
+
+**Non-obvious bug:** despite the method name, `file.writeArrayBuffer`
+throws `"exception: arraybuffer object expected"` if you actually pass a
+raw `ArrayBuffer` (`new Uint8Array(bytes).buffer`) — it wants the
+`Uint8Array` itself. This cost a long debugging session because the
+failure is a plain thrown exception with no stack trace visible anywhere
+(the watch runs Vela OS/NuttX, not Android — nothing it logs reaches
+`adb logcat` on the paired phone). The way this got diagnosed at all was
+adding a `try/catch` around the call and displaying `e.message` in the
+app's own UI, since there's no other way to see watch-side JS errors on
+real hardware.
+
+To send an image via the debug hook:
+
+```sh
+adb shell am broadcast \
+  -a nodomain.freeyourgadget.gadgetbridge.ACTION_SEND_APP_MESSAGE \
+  -p nodomain.freeyourgadget.gadgetbridge \
+  --es package <your.quickapp.packageName> \
+  --es imagePath /path/to/image.png
+```
+
+(`imagePath` must be a path Gadgetbridge's own process can read — its own
+external files dir works; arbitrary `/sdcard/Download/` paths may not, see
+the dev-environment guide's note on Scoped Storage.)
+
+### A note on debugging with the Vela emulator
+
+The emulator (see [`../emulator/`](../emulator/)) streams full runtime
+console output over adb, which is otherwise invisible on real hardware —
+useful for isolating a JS-level bug like the one above, by triggering the
+same code path directly (e.g. from `onShow`) instead of routing it through
+BLE. Two gotchas: it needs `adb shell am stop <package>` before redeploying
+an already-open app, or `aiot start` just resumes the stale in-memory JS
+instead of reloading; and cold module initialization can take longer than
+it looks like it should before reaching `onShow` — don't conclude the
+emulator is hung from a short log capture window. `@system.interconnect`
+specifically has no real backing connection in the emulator (nothing is
+paired to it), so app testing there is limited to features that don't
+depend on the phone link.
