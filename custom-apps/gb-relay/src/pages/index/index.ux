@@ -1,0 +1,78 @@
+<template>
+  <div class="page">
+    <text class="title">GB Relay</text>
+    <text class="status">{{ status }}</text>
+    <text class="message">{{ lastMessage }}</text>
+    <text class="button" onclick="sendPing">SEND PING</text>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #000000;
+    flex: 1;
+  }
+  .title {
+    color: #888888;
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  .status {
+    color: #1e90ff;
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+  .message {
+    color: #ffffff;
+    font-size: 22px;
+    margin-bottom: 30px;
+    text-align: center;
+    lines: 6;
+  }
+  .button {
+    color: #1e90ff;
+    font-size: 26px;
+    border-width: 2px;
+    border-color: #1e90ff;
+    padding: 12px 24px;
+  }
+</style>
+
+<script>
+  import interconnect from '@system.interconnect'
+
+  export default {
+    private: {
+      status: 'starting...',
+      lastMessage: '(no message yet)',
+      connect: interconnect.instance()
+    },
+    onShow() {
+      this.refreshStatus()
+      this.connect.onmessage = (data) => {
+        this.refreshStatus()
+        this.lastMessage = data.data
+      }
+      this.connect.onclose = () => {
+        this.status = 'closed'
+      }
+    },
+    refreshStatus() {
+      this.status = this.connect.getApkStatus()
+    },
+    sendPing() {
+      this.connect.send({
+        data: { data: 'ping from watch, count=' + Date.now() },
+        success: () => {
+          this.status = 'sent ok'
+        },
+        fail: (data) => {
+          this.status = 'send failed: ' + JSON.stringify(data)
+        }
+      })
+    }
+  }
+</script>
