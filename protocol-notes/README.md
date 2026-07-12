@@ -106,3 +106,39 @@ independent internet access at all** (confirmed separately — no working
 `system.fetch` path), a custom quick app can use this channel to have the
 phone (which has real internet, via Gadgetbridge's Internethelper
 companion app) fetch data on its behalf and relay it back.
+
+### How to actually use it today
+
+This isn't wired into any Gadgetbridge UI yet — it's proven working, not
+shipped. To reproduce end-to-end:
+
+1. Build/install Gadgetbridge from the `xiaomi-app-messaging` branch of
+   [our fork](https://github.com/Sany18/Gadgetbridge) instead of upstream.
+2. Build a quick app whose `manifest.json` declares the
+   `system.interconnect` feature and uses the JS API above (a minimal
+   example lives in [`../custom-apps/`](../custom-apps/)). Install it via
+   Gadgetbridge's normal RPK installer.
+3. Open the app on the watch. Gadgetbridge auto-answers the
+   `CONNECTED` handshake — no phone-side code needed for that part.
+4. To push a message from the phone side (there's no UI for this yet —
+   it's a debug hook, `XiaomiAppMessageDebugReceiver`), trigger it from
+   adb:
+
+   ```sh
+   adb shell am broadcast \
+     -a nodomain.freeyourgadget.gadgetbridge.ACTION_SEND_APP_MESSAGE \
+     -p nodomain.freeyourgadget.gadgetbridge \
+     --es package <your.quickapp.packageName> \
+     --es message "hello from phone"
+   ```
+
+   Omit `--es message` and it fetches the phone's public IP via
+   Internethelper and sends that instead, as a smoke test that a
+   real internet round-trip works.
+5. On the watch, `conn.onmessage` fires with that string.
+
+To turn this into a real feature (rather than an adb-triggered demo),
+something in Gadgetbridge needs to call
+`XiaomiRpkService.sendMessageToApp()` from actual app logic instead of
+the debug receiver — e.g. a settings screen, a scheduled job, or a
+response to a `conn.send()` request coming from the watch itself.
