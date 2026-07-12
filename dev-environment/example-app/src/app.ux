@@ -1,0 +1,10 @@
+<script>
+  export default {
+    onCreate() {
+      console.log('GB Test app created')
+    },
+    onError(err) {
+      console.log(`error message=${err.message}, stack=${err.stack}`)
+    }
+  }
+</script>

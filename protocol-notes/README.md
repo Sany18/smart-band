@@ -30,17 +30,21 @@ but unzip it and it's **itself just another zip** containing a single
 There's no RSA/PKCS7 structure, no public key, no signing authority — it's an
 **integrity manifest, not proof of authorship**.
 
-**Likely explanation** (see [`../dev-environment/`](../dev-environment/)): a
-real project built with the current `aiot-toolkit`/`hap-toolkit` toolchain
-*does* get properly signed for debug builds too — `npm run build` picks up a
-locally-generated self-signed cert from the project's `sign/debug/` directory
-(`private.pem` + `certificate.pem`, e.g. via `openssl req ...`). The sample
-RPK analyzed here has `packageInfo.toolkit: "1.0.18"` (an old version) and
-`originType: "cmd"`, and was very likely built without that signing step
-configured — i.e. this specific file is an *unsigned debug build*, not
-evidence that RPKs can never be signed. Whether the device firmware actually
-*verifies* a signature when one is present (as opposed to just accepting
-whatever's handed to it) is still an open question — untested here.
+**Confirmed, not just theorized:** built a minimal test app from scratch (see
+[`../dev-environment/`](../dev-environment/)) with the *current*
+`aiot-toolkit@2.0.5`, `npm run build`. The build log explicitly shows it
+locating and using a bundled key pair
+(`node_modules/@aiot-toolkit/aiotpack/.../signature/pem/{private,certificate}.pem`).
+Despite that, the resulting `META-INF/CERT` is — byte for byte the same
+shape — **still just a zip containing `hash.json`**, no RSA/PKCS7 anywhere.
+So this isn't a quirk of one old third-party sample; it's how `aiot build`
+(debug mode) packages RPKs in general, even when it has a real key pair
+available. It's possible `npm run release` (a separate command, using
+`sign/release/` instead of the bundled debug keys) produces an actually-signed
+package — not tested here. Either way: this test app **installed and ran
+successfully on real Band 9 Pro hardware via Gadgetbridge** with this
+unsigned-looking CERT, which is at least circumstantial evidence the device
+doesn't hard-require a real signature to install a debug-built RPK.
 
 ## Toolchain behind RPK apps
 

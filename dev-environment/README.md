@@ -1,5 +1,10 @@
 # Setting up a dev environment for Band 9 Pro apps
 
+[`example-app/`](example-app/) is a complete, minimal counter app (tap to
+increment) that has been **built and installed on real Band 9 Pro hardware**
+via the flow described below — not just theoretical. Copy it as your actual
+starting point instead of starting from blank files.
+
 There are **two, mostly unrelated, development tracks** for this device:
 
 | Track | What you build | Language | Toolchain |

@@ -1,0 +1,26 @@
+{
+  "package": "dev.notes.band9protest",
+  "name": "GB Test",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "icon": "/common/logo.png",
+  "minPlatformVersion": 1200,
+  "deviceTypeList": ["watch"],
+  "features": [
+    { "name": "system.prompt" }
+  ],
+  "config": {
+    "logLevel": "debug",
+    "designWidth": 336,
+    "debug": true
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": { "component": "index" }
+    }
+  },
+  "display": {
+    "backgroundColor": "#000000"
+  }
+}

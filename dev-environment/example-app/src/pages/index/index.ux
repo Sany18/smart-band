@@ -1,0 +1,45 @@
+<template>
+  <div class="page">
+    <text class="title">GB Test</text>
+    <text class="count">{{ count }}</text>
+    <text class="button" onclick="increment">TAP ME</text>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #000000;
+    flex: 1;
+  }
+  .title {
+    color: #888888;
+    font-size: 32px;
+    margin-bottom: 20px;
+  }
+  .count {
+    color: #ffffff;
+    font-size: 96px;
+    margin-bottom: 40px;
+  }
+  .button {
+    color: #1e90ff;
+    font-size: 36px;
+    border-width: 2px;
+    border-color: #1e90ff;
+    padding: 20px 40px;
+  }
+</style>
+
+<script>
+  export default {
+    private: {
+      count: 0
+    },
+    increment() {
+      this.count++
+    }
+  }
+</script>
