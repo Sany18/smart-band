@@ -53,3 +53,56 @@ The webpack module paths inside `app.js` reveal the real build tool:
 runtime), part of the same `aiot-toolkit` npm scope as the emulator (see
 [`../emulator/`](../emulator/)). So building your own RPK doesn't require any
 Windows tooling — it's the same official, cross-platform SDK.
+
+## `system.interconnect`: phone <-> quick-app messaging
+
+There's an undocumented quick-app JS module, `@system.interconnect`, that
+lets a watch-side RPK exchange arbitrary byte messages with a specific
+companion Android app (matched by package name) over BLE, via whatever app
+is managing the connection (stock Mi Fitness, or in our case a patched
+Gadgetbridge — see the `xiaomi-app-messaging` branch of
+[our Gadgetbridge fork](https://github.com/Sany18/Gadgetbridge)). This is
+the same channel the official
+`com.xiaomi.wearable.XMS_WEARABLE_SERVICE` AIDL interface
+(`NodeApi`/`MessageApi`) exposes to third-party Android apps — we
+reimplemented it directly in Gadgetbridge instead of depending on that
+service, so a custom quick app can talk to the phone with only Gadgetbridge
+installed.
+
+API surface (reverse-engineered, not in any public docs):
+
+```js
+import interconnect from '@system.interconnect'
+const conn = interconnect.instance() // singleton, create once
+conn.getApkStatus() // "UNINSTALLED" | "CONNECTED" | "DISCONNECTED" | "TIMEOUT"
+conn.onmessage = (e) => { /* e.data is the phone's message string */ }
+conn.onclose = () => {}
+conn.send({ data: { data: 'hello' }, success: () => {}, fail: (err) => {} })
+```
+
+Wire protocol: reuses the existing RPK-management `Command` (type=20)
+channel. `Rpk.rpkAppStatus` (field 8) and `Rpk.rpkAppMessage` (field 9) carry
+an `RpkAppBasicInfo{packageName, fingerprint}` plus either a connection
+status or an arbitrary byte payload:
+
+- subtype 6, watch -> phone: the watch proactively announces itself
+  (reusing the existing `RpkInfoList` shape: `id`=packageName,
+  `sha`=a real 20-byte fingerprint) whenever a quick app opens
+  `system.interconnect`.
+- subtype 7, phone -> watch: `RpkAppStatus`, must echo that same
+  fingerprint back with `status` 1 (connected) or 2 (disconnected).
+- subtype 8, phone -> watch / subtype 9, watch -> phone: `RpkAppMessage`,
+  the actual payload.
+
+**The fingerprint match is not optional.** Skip it (send an empty or
+placeholder fingerprint) and the wire traffic still looks byte-correct, but
+the watch silently rejects everything: `getApkStatus()` stays stuck on
+`TIMEOUT` and `send()` fails with `{"data":"not connected","code":401}`.
+The phone side must remember the fingerprint the watch itself announced
+and reuse it for every subsequent status/message send to that package.
+
+This is the plumbing behind a longer-term goal: since the band has **no
+independent internet access at all** (confirmed separately — no working
+`system.fetch` path), a custom quick app can use this channel to have the
+phone (which has real internet, via Gadgetbridge's Internethelper
+companion app) fetch data on its behalf and relay it back.
