@@ -1,0 +1,158 @@
+<template>
+  <div class="page">
+    <text class="title">Location</text>
+    <image class="tile" if="{{imageSrc}}" src="{{imageSrc}}"></image>
+    <text class="coord">{{ latitude }}</text>
+    <text class="coord">{{ longitude }}</text>
+    <text class="status">{{ status }}</text>
+    <text class="button" onclick="sendTestFix">TEST TILE</text>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #000000;
+    flex: 1;
+  }
+  .title {
+    color: #888888;
+    font-size: 28px;
+    margin-bottom: 20px;
+  }
+  .tile {
+    width: 160px;
+    height: 160px;
+    margin-bottom: 16px;
+  }
+  .coord {
+    color: #ffffff;
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+  .status {
+    color: #1e90ff;
+    font-size: 18px;
+    margin-top: 20px;
+    text-align: center;
+    lines: 4;
+  }
+  .button {
+    color: #1e90ff;
+    font-size: 20px;
+    border-width: 2px;
+    border-color: #1e90ff;
+    padding: 8px 16px;
+    margin-top: 16px;
+  }
+</style>
+
+<script>
+  import geolocation from '@system.geolocation'
+  import interconnect from '@system.interconnect'
+  import file from '@system.file'
+
+  const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+  function base64ToArrayBuffer(base64) {
+    const clean = base64.replace(/[^A-Za-z0-9+/]/g, '')
+    const bytes = []
+    let buffer = 0
+    let bits = 0
+    for (let i = 0; i < clean.length; i++) {
+      buffer = (buffer << 6) | BASE64_CHARS.indexOf(clean[i])
+      bits += 6
+      if (bits >= 8) {
+        bits -= 8
+        bytes.push((buffer >> bits) & 0xff)
+      }
+    }
+    return new Uint8Array(bytes)
+  }
+
+  export default {
+    private: {
+      latitude: '--',
+      longitude: '--',
+      status: 'starting...',
+      imageSrc: '',
+      connect: interconnect.instance(),
+      lastSentFix: null,
+      phoneFallbackSent: false
+    },
+    onShow() {
+      this.connect.onmessage = (data) => {
+        if (typeof data.data === 'string' && data.data.indexOf('IMG:') === 0) {
+          this.handleImageMessage(data.data.substring(4))
+        }
+      }
+      geolocation.subscribe({
+        coordType: 'wgs84',
+        success: (data) => {
+          this.latitude = 'lat: ' + data.latitude.toFixed(6)
+          this.longitude = 'lon: ' + data.longitude.toFixed(6)
+          this.status = 'accuracy: ' + Math.round(data.accuracy) + 'm'
+          this.sendFixToPhone(data.latitude, data.longitude)
+        },
+        fail: (data, code) => {
+          this.status = 'no watch GPS (' + code + '), trying phone location...'
+          // No fix of our own (e.g. indoors) — ask the phone to resolve its own
+          // last-known location instead, once per session.
+          if (!this.phoneFallbackSent) {
+            this.phoneFallbackSent = true
+            this.requestPhoneLocation()
+          }
+        }
+      })
+    },
+    requestPhoneLocation() {
+      this.connect.send({
+        data: { data: 'FIX:PHONE' },
+        success: () => {},
+        fail: (data) => {
+          this.status = 'phone fallback request failed: ' + JSON.stringify(data)
+        }
+      })
+    },
+    onHide() {
+      geolocation.unsubscribe()
+    },
+    sendFixToPhone(lat, lon) {
+      // Only resend if the fix moved meaningfully, to avoid spamming a tile
+      // request on every GPS update.
+      const key = lat.toFixed(3) + ',' + lon.toFixed(3)
+      if (this.lastSentFix === key) {
+        return
+      }
+      this.lastSentFix = key
+      this.connect.send({
+        data: { data: 'FIX:' + lat + ',' + lon },
+        success: () => {},
+        fail: () => {}
+      })
+    },
+    sendTestFix() {
+      this.status = 'requesting phone location...'
+      this.requestPhoneLocation()
+    },
+    handleImageMessage(base64) {
+      try {
+        const buffer = base64ToArrayBuffer(base64)
+        file.writeArrayBuffer({
+          uri: 'internal://files/tile.png',
+          buffer: buffer,
+          success: () => {
+            this.imageSrc = 'internal://files/tile.png'
+          },
+          fail: (data, code) => {
+            this.status = 'tile write failed ' + code + ': ' + JSON.stringify(data)
+          }
+        })
+      } catch (e) {
+        this.status = 'tile exception: ' + e.message
+      }
+    }
+  }
+</script>

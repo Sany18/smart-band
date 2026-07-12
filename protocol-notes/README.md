@@ -80,6 +80,15 @@ conn.onclose = () => {}
 conn.send({ data: { data: 'hello' }, success: () => {}, fail: (err) => {} })
 ```
 
+**Watch -> phone messages are JSON-wrapped on the wire.** `conn.send({data:{data:'X'}})`
+puts the literal bytes `{"data":"X"}` on the wire, not just `X` — the phone
+side must parse that envelope before checking message content (e.g.
+`new JSONObject(raw).optString("data", raw)` in Java). This only applies
+watch->phone; phone->watch sends (built directly against the proto) are not
+wrapped this way. Getting this backwards produces no error and no log —
+a prefix check like `text.startsWith("FIX:")` just silently never matches
+and the message is dropped, which is a nasty one to debug blind.
+
 Wire protocol: reuses the existing RPK-management `Command` (type=20)
 channel. `Rpk.rpkAppStatus` (field 8) and `Rpk.rpkAppMessage` (field 9) carry
 an `RpkAppBasicInfo{packageName, fingerprint}` plus either a connection
@@ -206,3 +215,24 @@ emulator is hung from a short log capture window. `@system.interconnect`
 specifically has no real backing connection in the emulator (nothing is
 paired to it), so app testing there is limited to features that don't
 depend on the phone link.
+
+### GPS-less fallback: relaying a real map tile
+
+[`../custom-apps/location-app/`](../custom-apps/location-app/) combines
+the image-relay mechanism above with `@system.geolocation` to show an
+actual OpenStreetMap tile around the device's position — confirmed
+working end to end with a real ~30KB tile fetched and rendered on the
+watch. When `geolocation.subscribe()` fails to get a fix (typical
+indoors), the watch sends `FIX:PHONE` instead of real coordinates; on the
+phone side, Gadgetbridge resolves its own last-known location via
+`LocationManager.getLastKnownLocation(...)` — permission is already
+granted, since Gadgetbridge holds `ACCESS_FINE/COARSE_LOCATION` for BLE
+scanning — converts lat/lon to a standard slippy-map tile x/y at zoom 16,
+downloads the tile from `tile.openstreetmap.org` via
+`InternetUtils.downloadBinaryFile`, and relays it back the same way as any
+other image.
+
+Gadgetbridge's own Settings > General > Location screen already stores a
+manually-set fallback lat/lon (used elsewhere by the `CurrentPosition`
+webview helper) — a further fallback layer worth wiring in if
+`LocationManager` itself comes back empty.
