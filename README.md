@@ -61,6 +61,7 @@ upstreaming) are not repeated here; see the project's own build docs.
 
 | Path | What it is |
 |---|---|
+| [`dev-environment/`](dev-environment/) | How to set up a quick-app dev environment, the `.ux` language, project structure, build/run/install workflow |
 | [`emulator/`](emulator/) | Scripts to create + boot a Vela OS virtual device matching the Band 9 Pro, using the official `aiot-toolkit` npm SDK |
 | [`protocol-notes/`](protocol-notes/) | Findings about the RPK app package format, including the fake-looking `CERT` file |
 | [`community-resources/`](community-resources/) | Non-GitHub, community-run resources (see caveats below) |

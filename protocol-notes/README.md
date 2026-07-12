@@ -28,12 +28,19 @@ but unzip it and it's **itself just another zip** containing a single
 [`rpk-cert-is-actually-just-hashes.json`](rpk-cert-is-actually-just-hashes.json).
 
 There's no RSA/PKCS7 structure, no public key, no signing authority — it's an
-**integrity manifest, not proof of authorship**. This means the usual "the
-firmware only runs Xiaomi-signed code" assumption may not hold for RPK apps
-specifically (as opposed to firmware images, which almost certainly are
-properly signed and checked). Not independently verified end-to-end (i.e. we
-haven't confirmed a *modified* RPK, with regenerated hashes, still installs
-and runs on real hardware) — a good next experiment for anyone picking this up.
+**integrity manifest, not proof of authorship**.
+
+**Likely explanation** (see [`../dev-environment/`](../dev-environment/)): a
+real project built with the current `aiot-toolkit`/`hap-toolkit` toolchain
+*does* get properly signed for debug builds too — `npm run build` picks up a
+locally-generated self-signed cert from the project's `sign/debug/` directory
+(`private.pem` + `certificate.pem`, e.g. via `openssl req ...`). The sample
+RPK analyzed here has `packageInfo.toolkit: "1.0.18"` (an old version) and
+`originType: "cmd"`, and was very likely built without that signing step
+configured — i.e. this specific file is an *unsigned debug build*, not
+evidence that RPKs can never be signed. Whether the device firmware actually
+*verifies* a signature when one is present (as opposed to just accepting
+whatever's handed to it) is still an open question — untested here.
 
 ## Toolchain behind RPK apps
 
