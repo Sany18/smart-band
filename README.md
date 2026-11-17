@@ -65,6 +65,8 @@ upstreaming) are not repeated here; see the project's own build docs.
 | [`emulator/`](emulator/) | Scripts to create + boot a Vela OS virtual device matching the Band 9 Pro, using the official `aiot-toolkit` npm SDK |
 | [`protocol-notes/`](protocol-notes/) | Findings about the RPK app package format, including the fake-looking `CERT` file |
 | [`community-resources/`](community-resources/) | Non-GitHub, community-run resources (see caveats below) |
+| [`mi-fitness-mod/`](mi-fitness-mod/) | Analysis of the official Mi Fitness 3.56.0 (CN): language, sideloading `.rpk`, voice assistant, NFC — plus a patch that replaces XiaoAI ([`voice-hook/`](mi-fitness-mod/voice-hook/)) |
+| [`voice-bridge/`](voice-bridge/) | Mac-side bridge: band voice → whisper.cpp → Claude Code (`claude -p`) → reply on the band |
 
 ## Related open-source projects (linked, not vendored)
 

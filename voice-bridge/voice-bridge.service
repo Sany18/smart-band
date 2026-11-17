@@ -1,0 +1,18 @@
+[Unit]
+Description=Watch voice bridge (Band 9 Pro voice -> whisper -> Claude)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/allProjs/smart-band/voice-bridge
+EnvironmentFile=%h/allProjs/smart-band/voice-bridge/.env
+ExecStart=%h/allProjs/smart-band/voice-bridge/.venv/bin/python bridge.py
+# BRIDGE_HOST is the Tailscale IP: if tailscaled isn't up yet the bind fails, so just retry.
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin
+
+[Install]
+WantedBy=default.target

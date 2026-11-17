@@ -1,0 +1,4 @@
+# Only needed for STT_BACKEND=faster-whisper (Linux/CPU hosts such as X1).
+# The whisper-cli backend (Mac) has no Python dependencies.
+faster-whisper==1.1.1
+requests>=2.31  # faster-whisper 1.1.1 imports it but does not declare it
